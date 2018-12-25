@@ -1,4 +1,4 @@
 <resources>
     <string name="app_name">library</string>
-    <string name="file_provider">com.clipview.fileprovider</string>
+    <string name="clip_view_load_bitmap_error">图片加载出错</string>
 </resources>

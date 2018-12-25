@@ -7,19 +7,19 @@
         android:id="@+id/clip_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
+
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:layout_alignParentBottom="true"
-        android:orientation="horizontal" >
+        android:orientation="horizontal">
 
         <RelativeLayout
             android:id="@+id/rl_back"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:onClick="back"
-            >
+            android:onClick="back">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -35,8 +35,8 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:onClick="rotate"
-            >
+            android:onClick="rotate">
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
@@ -55,8 +55,7 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:onClick="select"
-            >
+            android:onClick="select">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -79,13 +78,18 @@
         android:textSize="16dp" />
 
     <TextView
-        android:layout_below="@id/tv_title"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_below="@id/tv_title"
         android:layout_centerHorizontal="true"
         android:layout_marginTop="7dp"
         android:text="(图片可支持缩放)"
         android:textColor="#ffffff"
         android:textSize="12dp" />
 
+    <ProgressBar
+        android:id="@+id/loading"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_centerInParent="true" />
 </RelativeLayout>

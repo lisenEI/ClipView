@@ -28,7 +28,6 @@ public class MainActivity extends AppCompatActivity {
             Manifest.permission.CAMERA
     };
 
-    private ClipManager.ClipCallback mClipCallback;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,36 +38,44 @@ public class MainActivity extends AppCompatActivity {
         checkPermissions(this, permissions);
 
         //初始化 ClipManager
-        mClipManager = new ClipManager(this);
-        //截图回调
-        mClipCallback = new ClipManager.ClipCallback() {
-            @Override
-            public void onSuccess(@Nullable Bitmap bitmap) {
-                mPhoto.setImageBitmap(bitmap);
-            }
+        mClipManager = new ClipManager(this,
+                new ClipManager
+                        .Builder()
+                        .authority("com.clipview.fileprovider")
+                        .externalFilesPath("Pictures")
+                        .maxScaleTimes(2)
+                        .useRect(false)
+                        .shadowColor(0xb3000000)
+                        .clipRegionRatio(0.94f)
+                        .clipCallback(new ClipManager.ClipCallback() {
+                            @Override
+                            public void onSuccess(@Nullable Bitmap bitmap) {
+                                mPhoto.setImageBitmap(bitmap);
+                            }
 
-            @Override
-            public void onError(String msg) {
-                Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
-            }
+                            @Override
+                            public void onError(String msg) {
+                                Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
+                            }
 
-            @Override
-            public void onCancel() {
-                Toast.makeText(MainActivity.this, "cancel", Toast.LENGTH_SHORT).show();
-            }
-        };
+                            @Override
+                            public void onCancel() {
+                                Toast.makeText(MainActivity.this, "cancel", Toast.LENGTH_SHORT).show();
+                            }
+                        }).build());
+
 
         mPhoto = findViewById(R.id.iv_photo);
 
         findViewById(R.id.bt).setOnClickListener(v -> {
             //使用自定义截图框
-            mClipManager.setUserDefaultCrop(false);
+            mClipManager.setUseDefaultCrop(false);
             takePhoto();
         });
 
         findViewById(R.id.bt_system).setOnClickListener(v -> {
             //使用系统截图框
-            mClipManager.setUserDefaultCrop(true);
+            mClipManager.setUseDefaultCrop(true);
             takePhoto();
         });
     }
@@ -79,11 +86,11 @@ public class MainActivity extends AppCompatActivity {
                     switch (v.getId()) {
                         case PWTakePhoto.R_ID_BTN_0:
                             //拍照
-                            mClipManager.openCamera(MainActivity.this, mClipCallback);
+                            mClipManager.openCamera(MainActivity.this);
                             break;
                         case PWTakePhoto.R_ID_BTN_1:
                             //打开相册
-                            mClipManager.openGallery(MainActivity.this, mClipCallback);
+                            mClipManager.openGallery(MainActivity.this);
                             break;
                         default:
                             break;

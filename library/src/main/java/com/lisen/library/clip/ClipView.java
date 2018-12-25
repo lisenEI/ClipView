@@ -15,6 +15,8 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
 
+import com.lisen.library.utils.BitmapUtil;
+
 /**
  * @author lisen
  * @since 12-14-2018
@@ -27,7 +29,7 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
     /**
      * 默认截图框占屏幕宽的比例
      */
-    private static final float DEFAULT_CLIP_REGION_RATIO = 3f / 4;
+    private static final float DEFAULT_CLIP_REGION_RATIO = 0.94f;
 
     /**
      * 默认阴影颜色
@@ -217,21 +219,9 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
             mClipRect.right = mClipRect.left + mClipWidth;
             mClipRect.bottom = mClipRect.top + mClipWidth;
 
-            if (mBitmap == null) {
-                throw new NullPointerException("需要调用 setBitmap 方法传入 bitmap");
+            if (mBitmap != null) {
+                reset();
             }
-            if (mBitmapWidth >= mBitmapHeight) {
-                mBaseScale = 1f * mWidth / mBitmapWidth;
-                mMinScale = mClipWidth / mBitmapHeight;
-            } else {
-                mBaseScale = 1f * mHeight / mBitmapHeight;
-                mMinScale = mClipWidth / mBitmapWidth;
-            }
-            mMaxScale = mBaseScale * mMaxScaleTimes;
-            mCurrentScale = mBaseScale;
-            mImageMatrix.postTranslate(mWidth / 2 - mBitmapWidth / 2, mHeight / 2 - mBitmapHeight / 2);
-            mImageMatrix.postScale(mBaseScale, mBaseScale, mWidth / 2, mHeight / 2);
-            setImageMatrix(mImageMatrix);
         }
     }
 
@@ -326,7 +316,6 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
         }
         mImageMatrix.postTranslate(dx, dy);
         setImageMatrix(mImageMatrix);
-        print(4);
     }
 
     /**
@@ -351,15 +340,6 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
 
         setImageMatrix(mImageMatrix);
         mCurrentScale = mCurrentScale * scaleFactor;
-    }
-
-    private void print(int num) {
-        RectF rect = getMatrixRectF();
-        float left = rect.left;
-        float right = rect.right;
-        float top = rect.top;
-        float bottom = rect.bottom;
-        Log.i(TAG, num + " print: " + left + " " + top + " " + right + " " + bottom);
     }
 
     /**
@@ -417,7 +397,6 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
                 float d = mStrokeWidth / 2;
                 canvas.drawRect(mClipRect.left - d, mClipRect.top - d, mClipRect.right + d, mClipRect.bottom + d, mPaint);
 
-
             }
         }
     }
@@ -432,6 +411,10 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
         mBitmapWidth = mBitmap.getWidth();
         mBitmapHeight = mBitmap.getHeight();
         setImageBitmap(bitmap);
+
+        if (mWidth != 0) {
+            reset();
+        }
     }
 
     /**
@@ -462,9 +445,10 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
      * @param clipRegionRatio
      */
     public void setClipRegionRatio(float clipRegionRatio) {
-        if (clipRegionRatio <= 0) {
+        if (clipRegionRatio <= 0 || clipRegionRatio > 1) {
             return;
         }
+
         mClipRegionRatio = clipRegionRatio;
     }
 
@@ -490,8 +474,8 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
         Bitmap bitmap = null;
         try {
             bitmap = Bitmap.createBitmap(mBitmap, (int) left, (int) top, (int) width, (int) width);
-        } catch (Throwable throwable) {
-
+        } catch (IllegalArgumentException e) {
+        } catch (OutOfMemoryError e) {
         }
         return bitmap;
     }
@@ -499,49 +483,32 @@ public class ClipView extends AppCompatImageView implements ScaleGestureDetector
     /**
      * 图片旋转
      */
-
     public void rotate() {
-        Bitmap rotateBitmap = rotateImageView(90, mBitmap);
+        Bitmap rotateBitmap = BitmapUtil.rotateBitmap(90, mBitmap);
         if (rotateBitmap == null) {
             Log.e(TAG, "rotate: error");
             return;
         }
         mBitmap = rotateBitmap;
 
-        setImageBitmap(mBitmap);
-
-        reset();
-    }
-
-    /**
-     * 图片旋转
-     *
-     * @param angle
-     * @param bitmap
-     * @return
-     */
-    private Bitmap rotateImageView(int angle, Bitmap bitmap) {
-        // 旋转图片 动作
-        Matrix matrix = new Matrix();
-        matrix.postRotate(angle);
-        // 创建新的图片
-        Bitmap resizedBitmap = Bitmap.createBitmap(bitmap, 0, 0,
-                bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-        return resizedBitmap;
+        setBitmap(mBitmap);
     }
 
     /**
      * 重置所有配置
      */
     private void reset() {
-        mBitmapWidth = mBitmap.getWidth();
-        mBitmapHeight = mBitmap.getHeight();
-
         if (mBitmapWidth >= mBitmapHeight) {
             mBaseScale = 1f * mWidth / mBitmapWidth;
+            if (mBitmapHeight * mBaseScale < mClipWidth) {
+                mBaseScale = mClipWidth / mBitmapHeight;
+            }
             mMinScale = mClipWidth / mBitmapHeight;
         } else {
             mBaseScale = 1f * mHeight / mBitmapHeight;
+            if (mBitmapWidth * mBaseScale < mClipWidth) {
+                mBaseScale = mClipWidth / mBitmapWidth;
+            }
             mMinScale = mClipWidth / mBitmapWidth;
         }
         mMaxScale = mBaseScale * mMaxScaleTimes;

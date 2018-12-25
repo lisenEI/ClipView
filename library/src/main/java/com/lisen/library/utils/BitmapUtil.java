@@ -1,15 +1,10 @@
 package com.lisen.library.utils;
 
-import android.content.Context;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.media.ExifInterface;
-import android.net.Uri;
 
 import java.io.IOException;
-
-import static com.lisen.library.utils.UriUtil.getImageAbsolutePath;
 
 /**
  * @author lisen
@@ -17,22 +12,6 @@ import static com.lisen.library.utils.UriUtil.getImageAbsolutePath;
  */
 
 public class BitmapUtil {
-    /**
-     * 根据 uri 读取 bitmap
-     *
-     * @param context
-     * @param uri
-     * @return
-     */
-    public static Bitmap getBitmap(Context context, Uri uri) {
-        String path = getImageAbsolutePath(context, uri);
-        int degree = readPictureDegree(path);
-        Bitmap bitmap = BitmapFactory.decodeFile(path);
-        if (degree != 0) {
-            bitmap = rotateBitmap(degree, bitmap);
-        }
-        return bitmap;
-    }
 
     /**
      * 获取图片信息

@@ -10,15 +10,21 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.provider.MediaStore;
+import android.support.annotation.ColorInt;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.content.FileProvider;
-
-import com.lisen.library.R;
+import android.text.TextUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+
+import static com.lisen.library.clip.ClipActivity.EXTRAS_CLIP_VIEW_CLIP_REGION_RATIO;
+import static com.lisen.library.clip.ClipActivity.EXTRAS_CLIP_VIEW_MAX_SCALE_TIMES;
+import static com.lisen.library.clip.ClipActivity.EXTRAS_CLIP_VIEW_RECT_CLIP_REGION;
+import static com.lisen.library.clip.ClipActivity.EXTRAS_CLIP_VIEW_SHADOW_COLOR;
+import static com.lisen.library.clip.ClipActivity.RESULT_CLIP_IMAGE_PATH;
 
 /**
  * @author lisen
@@ -42,11 +48,6 @@ public class ClipManager {
     public static final int CUT_IMG = 3;
 
     /**
-     * 是否使用系统默认裁剪
-     */
-    private boolean mUserDefaultCrop;
-
-    /**
      * 拍照所得相片路径
      */
     private File mCameraFile = null;
@@ -60,15 +61,16 @@ public class ClipManager {
 
     private static final String CUT_IMAGE_NAME = "cut_image.png";
 
-    private ClipCallback mClipCallback;
+    private Builder mBuilder;
 
-
-    public ClipManager(Context context) {
-        init(context);
+    public ClipManager(@Nullable Context context, Builder builder) {
+        init(context, builder);
     }
 
-    public void init(@Nullable Context context) {
-        File cacheDir = new File(context.getCacheDir(), "images");
+    public void init(@Nullable Context context, Builder builder) {
+        mBuilder = builder;
+
+        File cacheDir = new File(context.getCacheDir(), builder.getExternalFilesPath());
         if (!cacheDir.exists()) {
             cacheDir.mkdirs();
         }
@@ -96,8 +98,7 @@ public class ClipManager {
     /**
      * 相册
      */
-    public void openGallery(@NonNull Activity activity, @NonNull ClipCallback callback) {
-        mClipCallback = callback;
+    public void openGallery(@NonNull Activity activity) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType("image/*");
@@ -107,16 +108,13 @@ public class ClipManager {
     /**
      * 相机
      */
-    public void openCamera(@NonNull Activity activity, @NonNull ClipCallback callback) {
-        mClipCallback = callback;
+    public void openCamera(@NonNull Activity activity) {
         Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
         Uri uri = getUri(activity, mCameraFile);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
-        } else {
-            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
         }
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, uri);
         activity.startActivityForResult(intent, CAMERA_IMG);
     }
 
@@ -124,7 +122,7 @@ public class ClipManager {
      * 裁切图片
      */
     private void cutImage(Activity activity, Uri uri, int requestCode) {
-        if (mUserDefaultCrop) {
+        if (mBuilder.isUseDefaultCrop()) {
             //使用系统自带的图片裁剪
             Intent intent = new Intent("com.android.camera.action.CROP", null);
             intent.setDataAndType(uri, "image/*");
@@ -141,7 +139,7 @@ public class ClipManager {
             intent.putExtra("scaleUpIfNeeded", true);
             intent.putExtra("return-data", false);
             Uri cutUri = getUri(activity, mCutFile);
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                 //将存储图片的uri读写权限授权给剪裁工具应用
                 List<ResolveInfo> resInfoList = activity.getPackageManager().queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY);
@@ -149,13 +147,10 @@ public class ClipManager {
                     String packageName = resolveInfo.activityInfo.packageName;
                     activity.grantUriPermission(packageName, cutUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 }
-                intent.putExtra(MediaStore.EXTRA_OUTPUT, cutUri);
-            } else {
-                intent.putExtra(MediaStore.EXTRA_OUTPUT, cutUri);
             }
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, cutUri);
             intent.putExtra("outputFormat", Bitmap.CompressFormat.JPEG.toString());
             intent.putExtra("outputQuality", 10);
-            intent.putExtra("noFaceDetaction", true);
 
             activity.startActivityForResult(intent, CUT_IMG);
         } else {
@@ -164,22 +159,17 @@ public class ClipManager {
                 uri = Uri.fromFile(mCameraFile);
             }
             clipIntent.setData(uri);
+            clipIntent.putExtra(EXTRAS_CLIP_VIEW_SHADOW_COLOR, mBuilder.getShadowColor());
+            clipIntent.putExtra(EXTRAS_CLIP_VIEW_CLIP_REGION_RATIO, mBuilder.getClipRegionRatio());
+            clipIntent.putExtra(EXTRAS_CLIP_VIEW_MAX_SCALE_TIMES, mBuilder.getMaxScaleTimes());
+            clipIntent.putExtra(EXTRAS_CLIP_VIEW_RECT_CLIP_REGION, mBuilder.isUseRect());
             activity.startActivityForResult(clipIntent, CUT_IMG);
         }
     }
 
-    /**
-     * 设置是否使用系统截图框
-     *
-     * @param userDefaultCrop true 系统 false 自定义
-     */
-    public void setUserDefaultCrop(boolean userDefaultCrop) {
-        mUserDefaultCrop = userDefaultCrop;
-    }
-
     private Uri getUri(@NonNull Context context, File file) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-            return FileProvider.getUriForFile(context, context.getResources().getString(R.string.file_provider), file);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return FileProvider.getUriForFile(context, mBuilder.getAuthority(), file);
         } else {
             return Uri.fromFile(file);
         }
@@ -199,9 +189,13 @@ public class ClipManager {
             switch (requestCode) {
                 // 如果是直接从相册获取
                 case PHOTO_IMG:
+                    if (data == null) {
+                        mBuilder.getClipCallback().onError("result intent null");
+                        return;
+                    }
                     uri = data.getData();
                     if (uri == null) {
-                        mClipCallback.onError("获取 data 为空");
+                        mBuilder.getClipCallback().onError("uri is null");
                         return;
                     }
                     cutImage(activity, uri, requestCode);
@@ -210,29 +204,45 @@ public class ClipManager {
                 case CAMERA_IMG:
                     uri = getUri(activity, mCameraFile);
                     if (uri == null) {
-                        mClipCallback.onError("获取 uri 为空");
+                        mBuilder.getClipCallback().onError("uri is null");
                         return;
                     }
                     cutImage(activity, uri, requestCode);
                     break;
                 // 取得裁剪后的图片
                 case CUT_IMG:
-                    if (mUserDefaultCrop) {
+                    if (mBuilder.isUseDefaultCrop()) {
                         Bitmap bitmap = BitmapFactory.decodeFile(mCutFile.getAbsolutePath());
-                        mClipCallback.onSuccess(bitmap);
+                        mBuilder.getClipCallback().onSuccess(bitmap);
+                    } else if (data != null) {
+                        String path = data.getStringExtra(RESULT_CLIP_IMAGE_PATH);
+                        if (!TextUtils.isEmpty(path)) {
+                            Bitmap bitmap = BitmapFactory.decodeFile(path);
+                            if (bitmap != null) {
+                                mBuilder.getClipCallback().onSuccess(bitmap);
+                            } else {
+                                mBuilder.getClipCallback().onError("decodeFile error");
+                            }
+                        } else {
+                            mBuilder.getClipCallback().onError("image path is null");
+                        }
                     } else {
-                        byte[] bis = data.getByteArrayExtra("bitmap");
-                        Bitmap bitmap = BitmapFactory.decodeByteArray(bis, 0, bis.length);
-                        mClipCallback.onSuccess(bitmap);
+                        mBuilder.getClipCallback().onError("unknown error");
                     }
                     break;
                 default:
-                    mClipCallback.onError("未知错误");
+                    mBuilder.getClipCallback().onError("unknown error");
                     break;
             }
+        } else if (resultCode == Activity.RESULT_CANCELED) {
+            mBuilder.getClipCallback().onCancel();
         } else {
-            mClipCallback.onCancel();
+            mBuilder.getClipCallback().onError("unknown error");
         }
+    }
+
+    public void setUseDefaultCrop(boolean useDefaultCrop) {
+        mBuilder.useDefaultCrop(useDefaultCrop);
     }
 
     /**
@@ -257,6 +267,176 @@ public class ClipManager {
          * 取消
          */
         void onCancel();
+    }
+
+
+    public static class Builder {
+        /**
+         * android.support.v4.content.FileProvider 设置的 Authorities
+         */
+        private String authority;
+
+        /**
+         * 图片存储路径
+         */
+        private String externalFilesPath;
+
+        /**
+         * 使用系统截图还是自定义截图
+         */
+        private boolean useDefaultCrop;
+
+        /**
+         * 自定义截图的遮罩颜色
+         */
+        private int shadowColor = -1;
+
+        /**
+         * 自定义截图图片可放大倍数
+         */
+        private float maxScaleTimes = -1;
+
+        /**
+         * 自定义截图框占屏幕宽的百分比
+         */
+        private float clipRegionRatio = -1;
+
+        /**
+         * 是否使用矩形截图框（默认圆形）
+         */
+        private boolean useRect;
+
+        /**
+         * 截图回调
+         */
+        ClipCallback clipCallback;
+
+        /**
+         * android.support.v4.content.FileProvider 设置的 Authorities
+         *
+         * @param authority
+         */
+        public Builder authority(String authority) {
+            this.authority = authority;
+            return this;
+        }
+
+        /**
+         * 图片存储路径
+         *
+         * @param externalFilesPath 比如 pictures
+         * @return
+         */
+        public Builder externalFilesPath(String externalFilesPath) {
+            this.externalFilesPath = externalFilesPath;
+            return this;
+        }
+
+        /**
+         * 使用系统截图还是自定义截图
+         *
+         * @param useDefaultCrop true 默认，false 自定义
+         */
+        public Builder useDefaultCrop(boolean useDefaultCrop) {
+            this.useDefaultCrop = useDefaultCrop;
+            return this;
+        }
+
+        /**
+         * 自定义截图的遮罩颜色
+         *
+         * @param shadowColor
+         * @return
+         */
+        public Builder shadowColor(@ColorInt int shadowColor) {
+            this.shadowColor = shadowColor;
+            return this;
+        }
+
+        /**
+         * 自定义截图图片可放大倍数
+         *
+         * @param maxScaleTimes must > 0
+         * @return
+         */
+        public Builder maxScaleTimes(float maxScaleTimes) {
+            this.maxScaleTimes = maxScaleTimes;
+            return this;
+        }
+
+        /**
+         * 自定义截图框占屏幕宽的百分比
+         *
+         * @param clipRegionRatio (0,1]
+         * @return
+         */
+        public Builder clipRegionRatio(float clipRegionRatio) {
+            this.clipRegionRatio = clipRegionRatio;
+            return this;
+        }
+
+        /**
+         * 是否使用矩形截图框（默认圆形）
+         *
+         * @param useRect true 矩形 false 圆形
+         * @return
+         */
+        public Builder useRect(boolean useRect) {
+            this.useRect = useRect;
+            return this;
+        }
+
+        /**
+         * 截图回调
+         *
+         * @param clipCallback
+         * @return
+         */
+        public Builder clipCallback(ClipCallback clipCallback) {
+            this.clipCallback = clipCallback;
+            return this;
+        }
+
+        public Builder build() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                if (TextUtils.isEmpty(authority)) {
+                    throw new IllegalArgumentException("authority is null");
+                }
+            }
+            return this;
+        }
+
+        public String getAuthority() {
+            return authority;
+        }
+
+        public String getExternalFilesPath() {
+            return externalFilesPath;
+        }
+
+        public int getShadowColor() {
+            return shadowColor;
+        }
+
+        public float getMaxScaleTimes() {
+            return maxScaleTimes;
+        }
+
+        public float getClipRegionRatio() {
+            return clipRegionRatio;
+        }
+
+        public boolean isUseRect() {
+            return useRect;
+        }
+
+        public boolean isUseDefaultCrop() {
+            return useDefaultCrop;
+        }
+
+        public ClipCallback getClipCallback() {
+            return clipCallback;
+        }
     }
 
 }

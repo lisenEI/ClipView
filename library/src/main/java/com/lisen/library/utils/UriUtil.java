@@ -16,7 +16,7 @@ public class UriUtil {
     /**
      * 根据Uri获取图片绝对路径，解决Android4.4以上版本Uri转换
      */
-    public static String getImageAbsolutePath(Context context, Uri imageUri) {
+    public static String getPath(Context context, Uri imageUri) {
         if (context == null || imageUri == null) {
             return null;
         }
